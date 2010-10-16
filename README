@@ -1,11 +1,11 @@
- chaos v0.0.1a
----------------
+ chaos v0.0.1
+-=-=-=-=-=-=-=-
 
    by stagas
 
--=-=-=-=-=-=-=-
+---------------
 
-chaos is a filesystem hash based database written on node.js
+chaos is a filesystem hash based database for node.js
 
 why chaos? because we exploit the sha1 chaotic randomness to store the keys evenly in the filesystem.
 

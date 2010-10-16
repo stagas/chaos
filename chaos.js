@@ -1,5 +1,5 @@
 /*
- * chaos v0.0.1a
+ * chaos v0.0.1
  *
  * by stagas
  *
@@ -46,14 +46,14 @@ Chaos.prototype._createDB = function(dir) {
   console.log('** chaos: creating database, please wait...')
   sys.print('** finishes on 0, patience! : ')
   
-  fs.mkdirSync(dir, 0666)
+  fs.mkdirSync(dir, 0777)
   for (var aa = len; aa--; ) {
     sys.print(space[aa])
     for (var ab = len; ab--; ) {
-      fs.mkdirSync(dir +'/'+ space[aa]+space[ab], 0666)
+      fs.mkdirSync(dir +'/'+ space[aa]+space[ab], 0777)
       for (var ba = len; ba--; ) {
         for (var bb = len; bb--; ) {
-          fs.mkdirSync(dir +'/'+ space[aa]+space[ab] +'/'+ space[ba]+space[bb], 0666)
+          fs.mkdirSync(dir +'/'+ space[aa]+space[ab] +'/'+ space[ba]+space[bb], 0777)
         }
       }
     }
@@ -93,6 +93,7 @@ Chaos.prototype._write = function(pos, val, cb) {
 
   fs.writeFile(self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c, val, 'utf8', function(err) {
     self._openFiles--
+    
     cb(err)
   })
 }

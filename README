@@ -1,0 +1,45 @@
+ chaos v0.0.1a
+---------------
+
+   by stagas
+
+-=-=-=-=-=-=-=-
+
+chaos is a filesystem hash based database written on node.js
+
+why chaos? because we exploit the sha1 chaotic randomness to store the keys evenly in the filesystem.
+
+
+
+the idea: 
+---------
+
+the first 2 characters of the sha1 hash of a key become the top dir in the tree, the next 2 become the
+child dir in the tree and the rest of the hash becomes the filename. This means that the 1st time you
+create a database, it will create 65,536 directories so it can then store keys/files in them. it
+also means that while the sha1 has trillions of combinations, the filesystem has limitations way lower
+than that. It depends on the filesystem but in general, but my guess is that less than 30,000 files in 
+a folder should perform really well. This translates to a max of 1,966,080,000 keys. Cool, eh?
+Plus you can store any utf8 string you want, it's just a proxy to fs.readFile() and fs.writeFile().
+
+
+
+usage:
+------
+
+var db = require('chaos')('mydbname')
+
+db.set(key, val, fs_callback)
+db.get(key, fs_callback)
+
+chaos just proxies the fs callback, back to the get/set function so it's what you would expect from
+a file operation.
+
+
+
+future:
+-------
+
+who knows?
+it's still just a proof of concept, no real life tests are done.
+contributions are welcome! :)

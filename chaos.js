@@ -1,5 +1,5 @@
 /*
- * chaos v0.0.2
+ * chaos v0.0.3
  *
  * by stagas
  *
@@ -44,17 +44,15 @@ var Chaos = exports.Chaos = function(dbName) {
   if (!(this instanceof Chaos)) return new Chaos(dbName)
   var self = this
   
-  this.version = 'v0.0.2'
+  this.version = 'v0.0.3'
   
   EventEmitter.call(this)
   
   this.dbName = dbName
 
-  var dir = __dirname + '/' + this.dbName
-  
   this.ready = false
   
-  path.exists(dir, function(exists) {
+  path.exists(this.dbName, function(exists) {
     if (!exists) {
       self._createDB(self.dbName)
     } else {

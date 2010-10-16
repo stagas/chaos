@@ -24,6 +24,13 @@ Plus you can store any utf8 string you want, it's just a proxy to fs.readFile() 
 
 
 
+installation:
+-------------
+
+npm install chaos
+
+
+
 usage:
 ------
 

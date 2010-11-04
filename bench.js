@@ -167,10 +167,78 @@ var consistency = function(cb) {
             done++
             assert.equal(data, '1234567890', 'Consistency error!')
             if (done===num) {
-              cb()
+              doesitwork(cb)
             }
           })
         }
+      }
+    })
+  }
+}
+
+var doesitwork = function(cb) {
+  var cnt = 0
+    , max = 6
+    
+  var cntincr = 0
+  db.del('incr', function(err) {
+    for (var i=50; i--; ) {
+      db.incr('incr', function(err, number) {
+        cntincr++
+        if (cntincr == 50) {
+          console.log('incr test:', number)
+          cnt++
+          if (cnt === max) cb()
+        }
+      })
+    }
+  })
+  var cntdecr = 0
+  db.del('decr', function(err) {
+    for (var i=50; i--; ) {
+      db.decr('decr', function(err, number) {
+        cntdecr++
+        if (cntdecr == 50) {
+          console.log('decr test:', number)
+          cnt++
+          if (cnt === max) cb()
+        }
+      })
+    }
+  })
+  db.getorsetget('getorsetget', 'ok', function(err, data) {
+    cnt++
+    console.log('getorsetget:', 'ok')
+    if (cnt === max) cb()    
+  })
+  db.set('getset', 'hello', function(err) {
+    db.getset('getset', 'world', function(err, data) {
+      cnt++
+      console.log('getset:', data)
+      if (cnt === max) cb()      
+    })
+  })
+  db.set('getdel', 'hello', function(err) {
+    db.getdel('getdel', function(err, data) {
+      db.get('getdel', function(err, data2) {
+        cnt++
+        console.log('getdel:', data, data2)
+        if (cnt === max) cb()
+      })
+    })
+  })
+  
+  var cntmass = 0
+  for (var i=50; i--;) {
+    db.set('mass', 'writes', function(err) {
+      cntmass++
+      if (err) throw err
+      if (cntmass===50) {
+        db.get('mass', function(err, data) {
+          console.log('mass:', data)
+          cnt++
+          if (cnt === max) cb()
+        })
       }
     })
   }

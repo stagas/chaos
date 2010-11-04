@@ -1,6 +1,6 @@
 { "name" : "chaos"
 , "description" : "chaos is a filesystem hash based database for node.js"
-, "version" : "0.0.3"
+, "version" : "0.1.0"
 , "main" : "chaos.js"
 , "homepage" : "http://github.com/stagas/chaos"
 , "author" : "George Stagakis <gstagas@gmail.com> (http://stagas.com/)"
@@ -9,7 +9,7 @@
   , "url" : "http://github.com/stagas/chaos.git"
   }
 , "bugs" : { "web" : "http://github.com/stagas/chaos/issues" }
-, "engines" : { "node" : ">=0.2.3" }
+, "engines" : { "node" : ">=0.2.4" }
 , "licenses" :
   [ { "type" : "MIT"
     , "url" : "http://github.com/stagas/chaos/raw/master/LICENSE"

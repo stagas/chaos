@@ -1,20 +1,38 @@
 /*
- * chaos v0.0.3
+ * chaos v0.1.0
  *
  * by stagas
  *
  */
  
-var sys = require('sys')
+var sys
   , fs = require('fs')
   , path = require('path')  
   , crypto = require('crypto')
   , EventEmitter = require('events').EventEmitter
 
+try {
+  sys = require('util')
+} catch (err) {
+  sys = require('sys')
+}
+
+// to_array from mranney / node_redis
+function to_array(args) {
+    var len = args.length,
+        arr = new Array(len), i;
+
+    for (i = 0; i < len; i += 1) {
+        arr[i] = args[i];
+    }
+
+    return arr;
+}
+
 // creationix's fast Queue
 var Queue = function() {
   this.tail = [];
-  this.head = Array.prototype.slice.call(arguments);
+  this.head = to_array(arguments);
   this.offset = 0;
   // Lock the object down
   Object.seal(this);
@@ -44,7 +62,7 @@ var Chaos = exports.Chaos = function(dbName) {
   if (!(this instanceof Chaos)) return new Chaos(dbName)
   var self = this
   
-  this.version = 'v0.0.3'
+  this.version = 'v0.1.0'
   
   EventEmitter.call(this)
   
@@ -66,10 +84,10 @@ var Chaos = exports.Chaos = function(dbName) {
   this.maxOpenFiles = 30
   this._openFiles = 0
 
-  this._writeQueue = new Queue()
-  this._readQueue = new Queue()
-
+  this._queue_ = new Queue()
   this._queued = false
+
+  this._busy = {}
   
   this.on('queue', function() {
     if (!self._queued) {
@@ -97,9 +115,7 @@ Chaos.prototype._createDB = function(dir) {
     for (var ab = len; ab--; ) {
       fs.mkdirSync(dir +'/'+ space[aa]+space[ab], 0777)
       for (var ba = len; ba--; ) {
-        for (var bb = len; bb--; ) {
-          fs.mkdirSync(dir +'/'+ space[aa]+space[ab] +'/'+ space[ba]+space[bb], 0777)
-        }
+        fs.mkdirSync(dir +'/'+ space[aa]+space[ab] +'/'+ space[ba], 0777)
       }
     }
   }
@@ -109,11 +125,11 @@ Chaos.prototype._createDB = function(dir) {
 
 Chaos.prototype._hash = function(key) {
   var hash = crypto.createHash(this._hashAlgo).update(key).digest(this._hashEnc)
-  return {a: hash.substr(0,2), b: hash.substr(2,2), c: hash.substr(4)}
+  return {a: hash.substr(0,2), b: hash.substr(2,1), c: hash.substr(3)}
 }
 
-Chaos.prototype._queue = function(what, which, then) {
-  this['_' + what + 'Queue'].push([which, then])
+Chaos.prototype._queue = function(a, b) {
+  this._queue_.push([a, b])
   
   this.emit('queue')
 }
@@ -121,19 +137,12 @@ Chaos.prototype._queue = function(what, which, then) {
 Chaos.prototype._drain = function() {
   var oper
   
-  if (this._openFiles < this.maxOpenFiles) {
-    if (this._writeQueue.length) {
-      oper = this._writeQueue.shift()
-      this._write(oper[0][0], oper[0][1], oper[1])
+  if (this._queue_.length) {
+    if (this._openFiles < this.maxOpenFiles) {
+      oper = this._queue_.shift()
+      this[oper[0]].apply(this, oper[1])
     }
-    
-    if (this._readQueue.length) {
-      oper = this._readQueue.shift()
-      this._read(oper[0], oper[1])
-    }
-  }
 
-  if (this._writeQueue.length || this._readQueue.length) {
     var self = this
     
     process.nextTick(function() {
@@ -144,36 +153,194 @@ Chaos.prototype._drain = function() {
   }
 }
 
-Chaos.prototype.set = function(key, val, cb) {
-  this._queue('write', [key, val], cb)
-}
 
-Chaos.prototype.get = function(key, cb) {
-  this._queue('read', key, cb)
-}
+// COMMANDS
 
-Chaos.prototype._write = function(key, val, cb) {    
+Chaos.prototype._set = function(key, val, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.set(key, val, cb)
+
   var self = this
     , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+  
+  if (typeof val != 'string') val = val.toString()
 
   this._openFiles++
+  this._busy[key] = true
   
-  fs.writeFile(self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c, val, 'utf8', function(err) {
+  fs.writeFile(filename, val, 'utf8', function(err) {
     self._openFiles--
-    
-    cb(err)
+    delete self._busy[key]
+
+    if (cb) cb(err)
   })
 }
 
-Chaos.prototype._read = function(key, cb) {
+Chaos.prototype._get = function(key, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.get(key, cb)
+
   var self = this
     , pos = this._hash(key)
-    
-  this._openFiles++
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
   
-  fs.readFile(this.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c, function(err, data) {
+  this._openFiles++
+  this._busy[key] = true
+
+  fs.readFile(filename, function(err, data) {
     self._openFiles--
+    delete self._busy[key]
     
-    cb(err, data)
+    if (cb) cb(err, data)
   })
 }
+
+Chaos.prototype._del = function(key, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.del(key, cb)
+
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+
+  this._openFiles++
+  this._busy[key] = true
+
+  fs.unlink(filename, function(err) {
+    self._openFiles--
+    delete self._busy[key]
+    
+    if (cb) cb(err)
+  })
+}
+
+Chaos.prototype._getset = function(key, val, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.getset(key, val, cb)
+
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+  
+  this._openFiles++
+  this._busy[key] = true
+
+  fs.readFile(filename, function(err, data) {
+    if (typeof val != 'string') val = val.toString()
+  
+    fs.writeFile(filename, val, 'utf8', function(err) {
+      self._openFiles--
+      delete self._busy[key]
+    
+      if (cb) cb(err, data)
+    })
+  })
+}
+
+Chaos.prototype._getdel = function(key, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.getdel(key, cb)
+
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+  
+  this._openFiles++
+  this._busy[key] = true
+  
+  fs.readFile(filename, function(err, data) {
+    fs.unlink(filename, function(err) {
+      self._openFiles--
+      delete self._busy[key]
+    
+      if (cb) cb(err, data)
+    })
+  })
+}
+
+Chaos.prototype._getorsetget = function(key, val, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.getorsetget(key, val, cb)
+
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+  
+  this._openFiles++
+  this._busy[key] = true
+  
+  fs.readFile(filename, function(err, data) {
+    if (err) {
+      if (typeof val != 'string') val = val.toString()
+
+      fs.writeFile(filename, val, 'utf8', function(err) {
+        self._openFiles--
+        delete self._busy[key]
+      
+        if (cb) cb(err, val)
+      })
+    } else {
+      self._openFiles--
+      delete self._busy[key]
+    
+      if (cb) cb(err, data)
+    }
+  })
+}
+
+Chaos.prototype._incr = function(key, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.incr(key, cb)
+  
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+
+  this._openFiles++
+  this._busy[key] = true
+
+  var num = 0
+  fs.readFile(filename, function(err, data) {
+    if (!err) {
+      num = parseInt(data, 10)
+      if (isNaN(num)) num = 0
+    }
+    
+    num++
+    
+    fs.writeFile(filename, num.toString(), 'utf8', function(err) {
+      self._openFiles--
+      delete self._busy[key]
+      
+      if (cb) cb(err, num)
+    })
+  })
+}
+
+Chaos.prototype._decr = function(key, cb) {
+  if (typeof this._busy[key] != 'undefined') return this.decr(key, cb)
+  
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+
+  this._openFiles++
+  this._busy[key] = true
+
+  var num = 0
+  fs.readFile(filename, function(err, data) {
+    if (!err) {
+      num = parseInt(data, 10)
+      if (isNaN(num)) num = 0
+    }
+    
+    num--
+    
+    fs.writeFile(filename, num.toString(), 'utf8', function(err) {
+      self._openFiles--
+      delete self._busy[key]
+      
+      if (cb) cb(err, num)
+    })
+  })
+}
+
+;[ 'get', 'set', 'del', 'getset', 'getdel', 'getorsetget', 'incr', 'decr' ].forEach(function(command) {
+  Chaos.prototype[command] = function() {
+    this._queue('_' + command, to_array(arguments))
+  }
+})

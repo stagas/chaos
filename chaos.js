@@ -535,7 +535,7 @@ Chaos.prototype._watch = function(key, opts, cb) {
     , pos = this.__hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
 
-  fs.watchFile(filename, {}, function(curr, prev) {
+  fs.watchFile(filename, opts, function(curr, prev) {
     self.get(key, cb)
   })
 }

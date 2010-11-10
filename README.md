@@ -56,7 +56,9 @@ Set a hkey field value.
 Get the value of a hkey field.
 
 ### db.hdel(hkey, field, function(err) {})
-Delete a hkey field. _Warning: This deletes only a field, to delete the hkey itself, use `db.del`_.
+Delete a hkey field. 
+
+_Warning:_ This deletes only a field, to delete the hkey itself, use `db.del`.
 
 ### db.hgetall(hkey, function(err, field_value_object) {})
 Get all field value pairs from a hkey. Returns an object with fields as keys and their values.
@@ -67,8 +69,11 @@ Get all field names from a hkey. Returns an unsorted array with the field names.
 ### db.hvals(hkey, function(err, values_array) {})
 Get all field values from a hkey. Returns an unsorted array with the field values.
 
-### db.watch(key, function(err, val) {})
-Watch a key for changes and attempt a `db.get`. _Note: This maps to fs.watchFile and thus is not very reliable as to when it's going to fire the callback. Don't trust it will fire on every key change._
+### db.watch(key, [options,] function(err, val) {})
+Watch a key for changes and attempt a `db.get`. If options is provided, it is passed on to
+`fs.watchFile` and it's an object. The default is `{persistent: true, interval: 0}`.
+
+_Notes:_ This maps to fs.watchFile and thus is not very reliable as to when it's going to fire the callback. Don't trust it will fire on every key change.
 Also on hkeys, it fires _only_ when a field is added or removed from the hkey, not when fields change.
 
 ### db.unwatch(key)

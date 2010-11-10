@@ -1,5 +1,5 @@
 /*
- * chaos v0.1.1
+ * chaos v0.1.2
  *
  * by stagas
  *
@@ -64,7 +64,7 @@ var Chaos = exports.Chaos = function(dbName) {
   if (!(this instanceof Chaos)) return new Chaos(dbName)
   var self = this
   
-  this.version = 'v0.1.1'
+  this.version = 'v0.1.2'
   
   EventEmitter.call(this)
   
@@ -206,11 +206,22 @@ Chaos.prototype._del = function(key, cb) {
   this._openFiles++
   this._busy[key] = true
 
-  fs.unlink(filename, function(err) {
-    self._openFiles--
-    delete self._busy[key]
-    
-    if (cb) cb(err)
+  fs.stat(filename, function(err, stats) {
+    if (stats.isFile()) {
+      fs.unlink(filename, function(err) {
+        self._openFiles--
+        delete self._busy[key]
+      
+        if (cb) cb(err)
+      })
+    } else {
+      fs.rmdir(filename, function(err) {
+        self._openFiles--
+        delete self._busy[key]
+        
+        if (cb) cb(err)
+      })
+    }
   })
 }
 

@@ -1,5 +1,5 @@
 /*
- * chaos v0.1.3
+ * chaos v0.1.4
  *
  * by stagas
  *
@@ -64,7 +64,7 @@ var Chaos = exports.Chaos = function(dbName) {
   if (!(this instanceof Chaos)) return new Chaos(dbName)
   var self = this
   
-  this.version = 'v0.1.3'
+  this.version = 'v0.1.4'
   
   EventEmitter.call(this)
   
@@ -102,6 +102,16 @@ var Chaos = exports.Chaos = function(dbName) {
 sys.inherits(Chaos, EventEmitter)
 Chaos.Chaos = Chaos
 module.exports = Chaos
+
+Chaos.prototype.__busy = function(key) {
+  this._openFiles++
+  this._busy[key] = true
+}
+
+Chaos.prototype.__free = function(key) {
+  this._openFiles--
+  delete this._busy[key]
+}
 
 Chaos.prototype._createDB = function(dir) {
   var self = this
@@ -167,12 +177,10 @@ Chaos.prototype._set = function(key, val, cb) {
   
   if (typeof val != 'string') val = val.toString()
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.writeFile(filename, val, 'utf8', function(err) {
-    self._openFiles--
-    delete self._busy[key]
+    self.__free(key)
 
     if (cb) cb(err)
   })
@@ -185,12 +193,10 @@ Chaos.prototype._get = function(key, cb) {
     , pos = this._hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
   
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
 
   fs.readFile(filename, 'utf8', function(err, data) {
-    self._openFiles--
-    delete self._busy[key]
+    self.__free(key)
     
     if (cb) cb(err, data)
   })
@@ -203,35 +209,26 @@ Chaos.prototype._del = function(key, cb) {
     , pos = this._hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
 
   fs.stat(filename, function(err, stats) {
     if (err) {
-      self._openFiles--
-      delete self._busy[key]
-    
+      self.__free(key)
       if (cb) cb(err)
       return
     }
     if (stats.isFile()) {
       fs.unlink(filename, function(err) {
-        self._openFiles--
-        delete self._busy[key]
-      
+        self.__free(key)
         if (cb) cb(err)
       })
     } else if (stats.isDirectory()) {
       fs.rmdir(filename, function(err) {
-        self._openFiles--
-        delete self._busy[key]
-        
+        self.__free(key)
         if (cb) cb(err)
       })
     } else {
-      self._openFiles--
-      delete self._busy[key]
-    
+      self.__free(key)
       if (cb) cb(err)
     }
   })
@@ -244,16 +241,13 @@ Chaos.prototype._getset = function(key, val, cb) {
     , pos = this._hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
   
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
 
   fs.readFile(filename, 'utf8', function(err, data) {
     if (typeof val != 'string') val = val.toString()
   
     fs.writeFile(filename, val, 'utf8', function(err) {
-      self._openFiles--
-      delete self._busy[key]
-    
+      self.__free(key)
       if (cb) cb(err, data)
     })
   })
@@ -266,14 +260,11 @@ Chaos.prototype._getdel = function(key, cb) {
     , pos = this._hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
   
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.readFile(filename, function(err, data) {
     fs.unlink(filename, function(err) {
-      self._openFiles--
-      delete self._busy[key]
-    
+      self.__free(key)
       if (cb) cb(err, data)
     })
   })
@@ -286,23 +277,18 @@ Chaos.prototype._getorsetget = function(key, val, cb) {
     , pos = this._hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
   
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.readFile(filename, 'utf8', function(err, data) {
     if (err) {
       if (typeof val != 'string') val = val.toString()
 
       fs.writeFile(filename, val, 'utf8', function(err) {
-        self._openFiles--
-        delete self._busy[key]
-      
+        self.__free(key)
         if (cb) cb(err, val)
       })
     } else {
-      self._openFiles--
-      delete self._busy[key]
-    
+      self.__free(key)
       if (cb) cb(err, data)
     }
   })
@@ -315,8 +301,7 @@ Chaos.prototype._incr = function(key, cb) {
     , pos = this._hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
 
   var num = 0
   fs.readFile(filename, 'utf8', function(err, data) {
@@ -328,9 +313,7 @@ Chaos.prototype._incr = function(key, cb) {
     num++
     
     fs.writeFile(filename, num.toString(), 'utf8', function(err) {
-      self._openFiles--
-      delete self._busy[key]
-      
+      self.__free(key)
       if (cb) cb(err, num)
     })
   })
@@ -343,8 +326,7 @@ Chaos.prototype._decr = function(key, cb) {
     , pos = this._hash(key)
     , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
 
   var num = 0
   fs.readFile(filename, 'utf8', function(err, data) {
@@ -356,9 +338,7 @@ Chaos.prototype._decr = function(key, cb) {
     num--
     
     fs.writeFile(filename, num.toString(), 'utf8', function(err) {
-      self._openFiles--
-      delete self._busy[key]
-      
+      self.__free(key)
       if (cb) cb(err, num)
     })
   })
@@ -381,14 +361,11 @@ Chaos.prototype._hset = function(key, field, val, cb) {
   
   filename = dirname +'/'+ filename
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.mkdir(dirname, 0777, function(err) {
     fs.writeFile(filename, val, 'utf8', function(err) {
-      self._openFiles--
-      delete self._busy[key]
-      
+      self.__free(key)
       if (cb) cb(err)
     })
   })
@@ -409,13 +386,10 @@ Chaos.prototype._hget = function(key, field, cb) {
   
   filename = dirname +'/'+ filename
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.readFile(filename, 'utf8', function(err, data) {
-    self._openFiles--
-    delete self._busy[key]
-    
+    self.__free(key)
     if (cb) cb(err, data)
   })
 }
@@ -435,13 +409,10 @@ Chaos.prototype._hdel = function(key, field, cb) {
 
   filename = dirname +'/'+ filename
   
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
 
   fs.unlink(filename, function(err) {
-    self._openFiles--
-    delete self._busy[key]
-    
+    self.__free(key)
     if (cb) cb(err)
   })
 }
@@ -453,14 +424,11 @@ Chaos.prototype._hgetall = function(key, cb) {
     , pos = this._hash(key)
     , dirname = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.readdir(dirname, function(err, files) {
     if (err) {
-      self._openFiles--
-      delete self._busy[key]
-    
+      self.__free(key)
       if (cb) cb(err)
       return
     }
@@ -475,9 +443,7 @@ Chaos.prototype._hgetall = function(key, cb) {
         fs.readFile(dirname + file, 'utf8', function(err, data) {
           if (!err) keyvals[file] = data
           if (!--counter && cb) {
-            self._openFiles--
-            delete self._busy[key]
-            
+            self.__free(key)
             cb(null, keyvals)
           }
         })
@@ -493,13 +459,10 @@ Chaos.prototype._hkeys = function(key, cb) {
     , pos = this._hash(key)
     , dirname = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.readdir(dirname, function(err, files) {
-    self._openFiles--
-    delete self._busy[key]
-    
+    self.__free(key)
     if (cb) cb(err, files)
   })
 }
@@ -511,14 +474,11 @@ Chaos.prototype._hvals = function(key, cb) {
     , pos = this._hash(key)
     , dirname = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
 
-  this._openFiles++
-  this._busy[key] = true
+  this.__busy(key)
   
   fs.readdir(dirname, function(err, files) {
     if (err) {
-      self._openFiles--
-      delete self._busy[key]
-    
+      self.__free(key)
       if (cb) cb(err)
       return
     }
@@ -533,9 +493,7 @@ Chaos.prototype._hvals = function(key, cb) {
         fs.readFile(dirname + file, 'utf8', function(err, data) {
           if (!err) vals.push(data)
           if (!--counter && cb) {
-            self._openFiles--
-            delete self._busy[key]
-            
+            self.__free(key)
             cb(null, vals)
           }
         })
@@ -544,10 +502,31 @@ Chaos.prototype._hvals = function(key, cb) {
   })
 }
 
+Chaos.prototype._watch = function(key, opts, cb) {
+  if (typeof opts == 'function') cb = opts, opts = {}
+  
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+
+  fs.watchFile(filename, {}, function(curr, prev) {
+    self.get(key, cb)
+  })
+}
+
+Chaos.prototype._unwatch = function(key) {
+  var self = this
+    , pos = this._hash(key)
+    , filename = self.dbName +'/'+ pos.a +'/'+ pos.b +'/'+ pos.c
+  
+  fs.unwatchFile(filename)
+}
+
 ;[ 'get', 'set', 'del'
  , 'getset', 'getdel', 'getorsetget'
  , 'incr', 'decr' 
  , 'hset', 'hget', 'hdel', 'hgetall', 'hkeys', 'hvals'
+ , 'watch', 'unwatch'
  ].forEach(function(command) {
   Chaos.prototype[command] = function() {
     this._queue('_' + command, to_array(arguments))

@@ -65,6 +65,15 @@ test.hkeys = function() {
   })
 }
 
+test.watch = function() {
+  db.watch('foo', function(err, data) {
+    assert.equal('bar', data)
+    db.unwatch('foo')
+    db.set('foo', 'hey')
+  })
+  db.set('foo', 'bar')
+}
+
 for (var k in test) {
   test[k]()
 }

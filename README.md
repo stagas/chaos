@@ -59,13 +59,13 @@ Get the value of a hkey field.
 Delete a hkey field (this deletes only a field, to delete the hkey itself, use `db.del(hkey)`).
 
 ### db.hgetall(hkey, function(err, field_value_object) {})
-Get all field value pairs from an hkey (returns an object with fields as keys and their values).
+Get all field value pairs from a hkey (returns an object with fields as keys and their values).
   
 ### db.hkeys(hkey, function(err, fields_array) {})
-Get all field names from an hkey. Returns an unsorted array with the field names.
+Get all field names from a hkey. Returns an unsorted array with the field names.
 
 ### db.hvals(hkey, function(err, values_array) {})
-Get all field values from an hkey. Returns an unsorted array with the field values.
+Get all field values from a hkey. Returns an unsorted array with the field values.
   
 ## Future
 

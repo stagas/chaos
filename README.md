@@ -55,6 +55,9 @@ Set a hkey field value.
 ### db.hget(hkey, field, function(err, val) {})
 Get the value of a hkey field.
 
+### db.hdel(hkey, field, function(err) {})
+Delete a hkey field (this deletes only a field, to delete the hkey itself, use `db.del(hkey)`).
+
 ### db.hgetall(hkey, function(err, field_value_object) {})
 Get all field value pairs from an hkey (returns an object with fields as keys and their values).
   

@@ -72,6 +72,20 @@ test.watch = function() {
     db.set('foo', 'hey')
   })
   db.set('foo', 'bar')
+  db.del('foobar', function(err) {
+    db.watch('foobar', function(err, data) {
+      assert.equal(null, err)
+      assert.equal('', data)
+      db.unwatch('foobar')
+      db.hgetall('foobar', function(err, data) {
+        assert.equal(null, err)
+        assert.deepEqual({bar: 'bar'}, data)
+      })
+    })
+    db.hset('foobar', 'bar', 'bar', function(err) {
+      assert.equal(null, err)
+    })
+  })
 }
 
 for (var k in test) {

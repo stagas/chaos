@@ -1,6 +1,6 @@
-//
+// bench for chaos
 
-var db = require('./chaos')('test')
+var db = require('./chaos')('benchtest')
   , assert = require('assert')
 
 var best = {writes: 0, reads: 0}

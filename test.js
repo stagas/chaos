@@ -7,15 +7,13 @@ var test = {}
 
 test.hkeys = function() {
   db.del('john', function(err) {
-    db.hset('john', 'last name', 'doe', function(err) {
-      assert.equal(null, err)
+    db.hset('john', 'last name', 'doe', function(err) {  
       db.hget('john', 'last name', function(err, val) {
         assert.equal(null, err)
         assert.equal('doe', val)
       })
     })
   })
-  
   var test_many = {
     'john': 'doe'
   , 'mary': 'loo'
@@ -29,30 +27,39 @@ test.hkeys = function() {
     test_many_vals.push(test_many[k])
   }  
   
-  db.hset('persons', 'john', 'doe', function(err) {
-    assert.equal(null, err)
-    db.hset('persons', 'mary', 'loo', function(err) {
-      assert.equal(null, err)
-      db.hgetall('persons', function(err, data) {
-        assert.equal(null, err)
-        assert.deepEqual(data, test_many)
-      })
-      db.hkeys('persons', function(err, data) {
-        assert.equal(null, err)
-        assert.deepEqual(data.sort(), test_many_keys.sort())
-      })
-      db.hvals('persons', function(err, data) {
-        assert.equal(null, err)
-        assert.deepEqual(data.sort(), test_many_vals.sort())
+  db.del('persons', function(err) {
+    db.hset('persons', 'john', 'doe', function(err) {
+      db.hset('persons', 'mary', 'loo', function(err) {
+        db.hgetall('persons', function(err, data) {
+          assert.equal(null, err)
+          assert.deepEqual(data, test_many)
+        })
+        db.hkeys('persons', function(err, data) {
+          assert.equal(null, err)
+          assert.deepEqual(data.sort(), test_many_keys.sort())
+        })
+        db.hvals('persons', function(err, data) {
+          assert.equal(null, err)
+          assert.deepEqual(data.sort(), test_many_vals.sort())
+        })
       })
     })
   })
   
-  db.hset('will', 'delete', 'now', function(err) {
-    db.hdel('will', 'delete', function(err) {
-      assert.equal(null, err)
-      db.hget('will', 'delete', function(err) {
-        assert.notEqual(null, err)
+  db.del('will', function(err) {
+    db.hset('will', 'delete', 'now', function(err) {  
+      db.hget('will', 'delete', function(err, data) {
+        assert.equal(null, err)
+        db.hdel('will', 'delete', function(err) {
+          db.hget('will', 'delete', function(err, data) {
+            assert.notEqual(null, err)
+            db.del('will', function() {
+              db.hgetall('will', function(err, data) {
+                assert.notEqual(null, err)
+              })
+            })
+          })
+        })
       })
     })
   })

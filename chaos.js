@@ -1,5 +1,5 @@
 /*
- * chaos v0.1.2
+ * chaos v0.1.3
  *
  * by stagas
  *
@@ -64,7 +64,7 @@ var Chaos = exports.Chaos = function(dbName) {
   if (!(this instanceof Chaos)) return new Chaos(dbName)
   var self = this
   
-  this.version = 'v0.1.2'
+  this.version = 'v0.1.3'
   
   EventEmitter.call(this)
   
@@ -207,6 +207,13 @@ Chaos.prototype._del = function(key, cb) {
   this._busy[key] = true
 
   fs.stat(filename, function(err, stats) {
+    if (err) {
+      self._openFiles--
+      delete self._busy[key]
+    
+      if (cb) cb(err)
+      return
+    }
     if (stats.isFile()) {
       fs.unlink(filename, function(err) {
         self._openFiles--
@@ -214,13 +221,18 @@ Chaos.prototype._del = function(key, cb) {
       
         if (cb) cb(err)
       })
-    } else {
+    } else if (stats.isDirectory()) {
       fs.rmdir(filename, function(err) {
         self._openFiles--
         delete self._busy[key]
         
         if (cb) cb(err)
       })
+    } else {
+      self._openFiles--
+      delete self._busy[key]
+    
+      if (cb) cb(err)
     }
   })
 }
@@ -445,6 +457,14 @@ Chaos.prototype._hgetall = function(key, cb) {
   this._busy[key] = true
   
   fs.readdir(dirname, function(err, files) {
+    if (err) {
+      self._openFiles--
+      delete self._busy[key]
+    
+      if (cb) cb(err)
+      return
+    }
+    
     var counter = files.length
       , keyvals = {}
     
@@ -495,6 +515,14 @@ Chaos.prototype._hvals = function(key, cb) {
   this._busy[key] = true
   
   fs.readdir(dirname, function(err, files) {
+    if (err) {
+      self._openFiles--
+      delete self._busy[key]
+    
+      if (cb) cb(err)
+      return
+    }
+  
     var counter = files.length
       , vals = []
   

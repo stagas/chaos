@@ -1,6 +1,6 @@
 { "name" : "chaos"
 , "description" : "chaos is a node.js database"
-, "version" : "0.1.2"
+, "version" : "0.1.3"
 , "main" : "chaos.js"
 , "homepage" : "http://github.com/stagas/chaos"
 , "author" : "George Stagakis <gstagas@gmail.com> (http://stagas.com/)"

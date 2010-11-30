@@ -555,6 +555,8 @@ Chaos.prototype._jget = function(key, cb) {
     , val = null
     , buffer = ''
 
+  // this is loosely based on felixge's node-dirty (MIT LICENCED)
+
   var rs = fs.createReadStream(filename, {
     encoding: 'utf8'
   , flags: 'r'

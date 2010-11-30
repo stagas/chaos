@@ -3,15 +3,12 @@ chaos - a node.js database
 
 Why chaos? Because we exploit the sha1 chaotic randomness to store the keys evenly in the filesystem.
 
-## The idea
+## NEW VERSION WARNING
 
-The first 2 characters of the sha1 hash of a key become the top dir in the tree, the next 1 becomes the
-child dir in the tree and the rest of the hash becomes the filename. This means that the 1st time you
-create a database, it will create 4,096 directories so it can then store keys/files in them. It
-also means that while the sha1 has trillions of combinations, the filesystem has limitations way lower
-than that. It depends on the filesystem but in general, but my guess is that less than 30,000 files in 
-a folder should perform really well. This translates to a max 122,880,000 keys. Cool, eh?
-Plus you can store any utf8 string or number you want, it's just a proxy to fs.readFile() and fs.writeFile().
+This version is incompatible with previous. No longer creates directories, as it turns out
+it gets really slow and has no real gain over storing everything in the same directory.
+New commands `jset` and `jget` are to be used when you want to store a lot of small values,
+they perform better than regular keys and hkeys.
 
 ## Installation
 
@@ -19,7 +16,7 @@ Plus you can store any utf8 string or number you want, it's just a proxy to fs.r
 
 ## Usage
 
-    var db = require('chaos')('your database name')
+    var db = require('chaos')('your database path')
 
 ## Commands
 
@@ -68,6 +65,12 @@ Get all field names from a hkey. Returns an unsorted array with the field names.
 
 ### db.hvals(hkey, function(err, values_array) {})
 Get all field values from a hkey. Returns an unsorted array with the field values.
+
+### db.jset(key, val, function(err) {})
+Set a jkey value pair.
+
+### db.jget(key, function(err, val) {})
+Gets the value of a jkey.
 
 ### db.watch(key, [options,] function(err, val) {})
 Watch a key for changes and attempt a `db.get`. If options is provided, it is passed on to

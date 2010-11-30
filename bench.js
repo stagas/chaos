@@ -3,8 +3,10 @@
 var db = require('./chaos')('benchtest')
   , assert = require('assert')
 
-var best = {writes: 0, reads: 0}
-  , avg = {writes: 0, writesCnt: 0, reads: 0, readsCnt: 0}
+var best = {writes: 0, hwrites:0, jwrites:0, reads: 0, hreads: 0, jreads: 0 }
+  , avg = {writes: 0, writesCnt: 0, hwrites: 0, hwritesCnt: 0, jwrites: 0, jwritesCnt: 0
+          , reads: 0, readsCnt: 0, hreads: 0, hreadsCnt: 0, jreads:0, jreadsCnt: 0
+          }
 
 db.maxOpenFiles = 30
   
@@ -14,9 +16,9 @@ for (var i=1000; i--; ) {
 }
 
 var objects = [
-  'tiny'
+  JSON.stringify('tiny')
   
-, 'hello I am a medium sized string'
+, JSON.stringify('hello I am a medium sized string')
 
 , JSON.stringify({
     there: 'is'
@@ -31,7 +33,7 @@ var objects = [
   , butterfly: ['says', ['there', 'is', 'only', 'chaos']]
   , pi: Math.PI
   , big: big
-  })  
+  })
 ]
 
 function bench(obj, what, num, cb) {
@@ -43,8 +45,16 @@ function bench(obj, what, num, cb) {
     case 'all':
       sets(obj, num, function() {
         gets(obj, num, function() {
-          console.log('')
-          cb()
+          hsets(obj, num, function() {
+            hgets(obj, num, function() {
+              jsets(JSON.parse(obj), num, function() {
+                jgets(JSON.parse(obj), num, function() {
+                  console.log('')
+                  cb()
+                })
+              })
+            })
+          })
         })
       })
       break
@@ -55,11 +65,37 @@ function bench(obj, what, num, cb) {
       })
       break
     case 'gets':
-    default:
       gets(obj, num, function() {
         console.log('')
         cb()
       })
+      break
+    case 'hsets':
+      hsets(obj, num, function() {
+        console.log('')
+        cb()
+      })
+      break
+    case 'hgets':
+      hgets(obj, num, function() {
+        console.log('')
+        cb()
+      })
+      break      
+    case 'jsets':
+      jsets(JSON.parse(obj), num, function() {
+        console.log('')
+        cb()
+      })
+      break
+    case 'jgets':
+      jgets(JSON.parse(obj), num, function() {
+        console.log('')
+        cb()
+      })
+      break      
+    default:
+      cb()
       break
   }
 }
@@ -104,19 +140,95 @@ function gets(obj, num, cb) {
   }
 }
 
+function hsets(obj, num, cb) {
+  var done = 0
+    , clients = 0
+    , timer = new Date()
+
+  for (var i=num; i--; ) {
+    db.hset('hkey', i, obj, function(err) {
+      done++
+      if (done === num) {
+        var result = ( (num) / ((new Date() - timer) / 1000))
+        if (result > best.hwrites) best.hwrites = result
+        avg.hwrites += result
+        avg.hwritesCnt += 1
+        console.log('hkey writes:', result.toFixed(2) + '/s')
+        cb()
+      }
+    })
+  }
+}
+
+function hgets(obj, num, cb) {
+  var done = 0
+    , clients = 0
+    , timer = new Date()
+
+  for (var i=num; i--; ) {
+    db.hget('hkey', i, function(err, data) {
+      done++
+      if (done === num) {
+        var result = ( (num) / ((new Date() - timer) / 1000))
+        if (result > best.hreads) best.hreads = result
+        avg.hreads += result
+        avg.hreadsCnt += 1
+        console.log('hkey reads:', result.toFixed(2) + '/s')
+        cb()
+      }
+    })
+  }
+}
+
+function jsets(obj, num, cb) {
+  var done = 0
+    , clients = 0
+    , timer = new Date()
+
+  for (var i=num; i--; ) {
+    db.jset(i, obj, function(err) {
+      done++
+      if (done === num) {
+        var result = ( (num) / ((new Date() - timer) / 1000))
+        if (result > best.jwrites) best.jwrites = result
+        avg.jwrites += result
+        avg.jwritesCnt += 1
+        console.log('jkey writes:', result.toFixed(2) + '/s')
+        cb()
+      }
+    })
+  }
+}
+
+function jgets(obj, num, cb) {
+  var done = 0
+    , clients = 0
+    , timer = new Date()
+
+  for (var i=num; i--; ) {
+    db.jget(i, function(err, data) {
+      done++
+      if (done === num) {
+        var result = ( (num) / ((new Date() - timer) / 1000))
+        if (result > best.jreads) best.jreads = result
+        avg.jreads += result
+        avg.jreadsCnt += 1
+        console.log('jkey reads:', result.toFixed(2) + '/s')
+        cb()
+      }
+    })
+  }
+}
+
 var scenario = [
 
-  ['sets', 100]
-, ['sets', 500]
-, ['sets', 1000]
-, ['sets', 2000]
+  ['all', 2000]
+, ['all', 2000]
+//, ['all', 1000]
+//, ['all', 2000]
 //, ['sets', 5000]
 //, ['sets', 10000]
 
-, ['gets', 100]
-, ['gets', 500]
-, ['gets', 1000]
-, ['gets', 2000]
 //, ['gets', 5000]
 //, ['gets', 10000]
 
@@ -139,9 +251,17 @@ var next = function(i, o) {
       console.log('max open files:', db.maxOpenFiles)
       console.log('')
       console.log('best writes:', best.writes.toFixed(2) + '/s')
+      console.log('best hkey writes:', best.hwrites.toFixed(2) + '/s')
+      console.log('best jkey writes:', best.jwrites.toFixed(2) + '/s')
       console.log('best reads:', best.reads.toFixed(2) + '/s')
+      console.log('best hkey reads:', best.hreads.toFixed(2) + '/s')
+      console.log('best jkey reads:', best.jreads.toFixed(2) + '/s')
       console.log('avg writes:', (avg.writes / avg.writesCnt).toFixed(2) + '/s')
+      console.log('avg hwrites:', (avg.hwrites / avg.hwritesCnt).toFixed(2) + '/s')
+      console.log('avg jwrites:', (avg.jwrites / avg.jwritesCnt).toFixed(2) + '/s')
       console.log('avg reads:', (avg.reads / avg.readsCnt).toFixed(2) + '/s')
+      console.log('avg hreads:', (avg.hreads / avg.hreadsCnt).toFixed(2) + '/s')
+      console.log('avg jreads:', (avg.jreads / avg.jreadsCnt).toFixed(2) + '/s')
       console.log('---------------------')
       console.log('')
       console.log('all done!')

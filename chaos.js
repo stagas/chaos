@@ -1,5 +1,5 @@
 /*
- * chaos v0.1.5
+ * chaos v0.1.6
  *
  * by stagas
  *
@@ -66,7 +66,7 @@ var Chaos = exports.Chaos = function(dbName) {
   EventEmitter.call(this)
   
   var self = this
-  this.version = 'v0.1.5'
+  this.version = 'v0.1.6'
   this.dbName = dbName
   this.ready = false
   
@@ -114,12 +114,12 @@ Chaos.prototype.__free = function(key) {
 Chaos.prototype.__createDB = function(dir) {
   var self = this
 
-  fs.mkdirSync(dir, 0777)
+  fs.mkdirSync(dir, 0755)
   self.ready = true
 }
 
 Chaos.prototype.__hash = function(key) {
-  return crypto.createHash(this.__hashAlgo).update(key).digest(this.__hashEnc)
+  return crypto.createHash(this.__hashAlgo).update(key.toString()).digest(this.__hashEnc)
 }
 
 Chaos.prototype.__queue = function(a, b) {
@@ -264,7 +264,7 @@ Chaos.prototype._getdel = function(key, cb) {
   
   this.__busy(key)
   
-  fs.readFile(filename, function(err, data) {
+  fs.readFile(filename, 'utf8', function(err, data) {
     fs.unlink(filename, function(err) {
       self.__free(key)
       if (cb) cb(err, data)
@@ -363,7 +363,7 @@ Chaos.prototype._hset = function(key, field, val, cb) {
 
   this.__busy(key)
   
-  fs.mkdir(dirname, 0777, function(err) {
+  fs.mkdir(dirname, 0755, function(err) {
     fs.writeFile(filename, val, 'utf8', function(err) {
       self.__free(key)
       if (cb) cb(err)
@@ -433,15 +433,20 @@ Chaos.prototype._hgetall = function(key, cb) {
     var counter = files.length
       , keyvals = {}
     
+    if (!counter) {
+      self.__free(key)
+      return cb && cb(null, keyvals)
+    }
+    
     dirname += '/'
     
     for (var i=files.length; i--; ) {
       ;(function(file) {
         fs.readFile(dirname + file, 'utf8', function(err, data) {
           if (!err) keyvals[file] = data
-          if (!--counter && cb) {
+          if (!--counter) {
             self.__free(key)
-            cb(null, keyvals)
+            cb && cb(null, keyvals)
           }
         })
       }(files[i]))
@@ -519,7 +524,7 @@ Chaos.prototype._hvals = function(key, cb) {
 
 Chaos.prototype.__append = function(filename, key, val, cb) {
   var buf = new Buffer(key + '\t' + JSON.stringify(val) + '\n')
-  fs.open(filename, 'a+', 0777, function(err, fd) {
+  fs.open(filename, 'a+', 0644, function(err, fd) {
     fs.write(fd, buf, 0, buf.length, null, function(err, written) {
       fs.close(fd, cb)
     })

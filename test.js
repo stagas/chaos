@@ -14,6 +14,22 @@ test.hkeys = function() {
       })
     })
   })
+  db.del('json', function(err) {
+    db.hset('json', 'foo-_', { foo: 'bar' }, function(err) {
+      db.hget('json', 'foo-_', function(err, val) {
+        assert.equal(null, err)
+        assert.deepEqual({ foo: 'bar' }, val)
+      })
+    })
+  })
+  var store = db.mount('storage')
+  store.set('foo', ['bar'], function(err) {
+    store.set('bar', 'foo', function(err) {
+      store.all(function(err, kv) {
+        assert.deepEqual({ foo: ['bar'], bar: 'foo' }, kv)
+      })
+    })
+  })
   var test_many = {
     'john': 'doe'
   , 'mary': 'loo'

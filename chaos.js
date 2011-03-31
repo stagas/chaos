@@ -1,5 +1,5 @@
 /*
- * chaos v0.1.6
+ * chaos v0.1.7
  *
  * by stagas
  *
@@ -17,7 +17,7 @@ try {
   sys = require('sys')
 }
 
-var VALID_FILENAME = new RegExp('([^a-zA-Z0-9 ])', 'g')
+var VALID_FILENAME = new RegExp('([^a-zA-Z0-9 \-\_])', 'g')
 
 // to_array from mranney / node_redis
 function to_array(args) {
@@ -66,7 +66,7 @@ var Chaos = exports.Chaos = function(dbName) {
   EventEmitter.call(this)
   
   var self = this
-  this.version = 'v0.1.6'
+  this.version = 'v0.1.7'
   this.dbName = dbName
   this.ready = false
   
@@ -174,6 +174,31 @@ Chaos.prototype.__rmdir = function(dirname, cb) {
   })
 }
 
+Chaos.prototype.__prepare = function(val) {
+  switch (typeof val) {
+    case 'string':
+      break
+    case 'number':
+    case 'function':
+      val = val.toString()
+      break
+    default:
+      val = JSON.stringify(val)
+      break
+  }
+  return val
+}
+
+Chaos.prototype.__parse = function(s) {
+  var data
+  try {
+    data = JSON.parse(s)
+  } catch(e) {
+    data = s
+  }
+  return data
+}
+
 // COMMANDS
 
 Chaos.prototype._set = function(key, val, cb) {
@@ -203,6 +228,7 @@ Chaos.prototype._get = function(key, cb) {
 
   fs.readFile(filename, 'utf8', function(err, data) {
     self.__free(key)
+    data = self.__parse(data)
     if (cb) cb(err, data)
   })
 }
@@ -247,10 +273,11 @@ Chaos.prototype._getset = function(key, val, cb) {
   this.__busy(key)
 
   fs.readFile(filename, 'utf8', function(err, data) {
-    if (typeof val != 'string') val = val.toString()
+    val = self.__prepare(val)
   
     fs.writeFile(filename, val, 'utf8', function(err) {
       self.__free(key)
+      data = self.__parse(data)
       if (cb) cb(err, data)
     })
   })
@@ -267,6 +294,7 @@ Chaos.prototype._getdel = function(key, cb) {
   fs.readFile(filename, 'utf8', function(err, data) {
     fs.unlink(filename, function(err) {
       self.__free(key)
+      data = self.__parse(data)
       if (cb) cb(err, data)
     })
   })
@@ -282,14 +310,15 @@ Chaos.prototype._getorsetget = function(key, val, cb) {
   
   fs.readFile(filename, 'utf8', function(err, data) {
     if (err) {
-      if (typeof val != 'string') val = val.toString()
-
+      val = self.__prepare(val)
       fs.writeFile(filename, val, 'utf8', function(err) {
         self.__free(key)
+        val = self.__parse(val)
         if (cb) cb(err, val)
       })
     } else {
       self.__free(key)
+      data = self.__parse(data)
       if (cb) cb(err, data)
     }
   })
@@ -357,8 +386,8 @@ Chaos.prototype._hset = function(key, field, val, cb) {
     return
   }
 
-  if (typeof val != 'string') val = val.toString()
-  
+  val = this.__prepare(val)
+
   filename = dirname +'/'+ filename
 
   this.__busy(key)
@@ -379,7 +408,7 @@ Chaos.prototype._hget = function(key, field, cb) {
     , filename = field.toString().replace(VALID_FILENAME, '')
 
   if (filename.length == 0) {
-    if (cb) cb(new Error('Invalid field name (must be [a-zA-Z0-9 ]): ' + field))
+    if (cb) cb(new Error('Invalid field name (must be [a-zA-Z0-9 -_]): ' + field))
     return
   }
   
@@ -389,6 +418,7 @@ Chaos.prototype._hget = function(key, field, cb) {
   
   fs.readFile(filename, 'utf8', function(err, data) {
     self.__free(key)
+    data = self.__parse(data)
     if (cb) cb(err, data)
   })
 }
@@ -426,8 +456,7 @@ Chaos.prototype._hgetall = function(key, cb) {
   fs.readdir(dirname, function(err, files) {
     if (err) {
       self.__free(key)
-      if (cb) cb(err)
-      return
+      return cb && cb(null, {})
     }
     
     var counter = files.length
@@ -443,7 +472,7 @@ Chaos.prototype._hgetall = function(key, cb) {
     for (var i=files.length; i--; ) {
       ;(function(file) {
         fs.readFile(dirname + file, 'utf8', function(err, data) {
-          if (!err) keyvals[file] = data
+          if (!err) keyvals[file] = self.__parse(data)
           if (!--counter) {
             self.__free(key)
             cb && cb(null, keyvals)
@@ -619,6 +648,24 @@ Chaos.prototype._unwatch = function(key) {
     , filename = self.dbName +'/'+ this.__hash(key)
   
   fs.unwatchFile(filename)
+}
+
+Chaos.prototype.mount = function(key) {
+  var self = this
+  return {
+    'get': function(field, cb) {
+      self.hget(key, field, cb)
+    }
+  , 'set': function(field, val, cb) {
+      self.hset(key, field, val, cb)
+    }
+  , 'all': function(cb) {
+      self.hgetall(key, cb)
+    }
+  , 'remove': function(field, cb) {
+      self.hdel(key, field, cb)
+    }
+  }
 }
 
 ;[ 'get', 'set', 'del'

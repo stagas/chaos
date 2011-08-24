@@ -1,5 +1,5 @@
 /*
- * chaos v0.1.7
+ * chaos v0.2.0
  *
  * by stagas
  *
@@ -17,7 +17,7 @@ try {
   sys = require('sys')
 }
 
-var VALID_FILENAME = new RegExp('([^a-zA-Z0-9 \-\_])', 'g')
+var VALID_FILENAME = new RegExp('([^a-zA-Z0-9 \-\_\.])', 'g')
 
 // to_array from mranney / node_redis
 function to_array(args) {
@@ -66,7 +66,7 @@ var Chaos = exports.Chaos = function(dbName) {
   EventEmitter.call(this)
   
   var self = this
-  this.version = 'v0.1.7'
+  this.version = 'v0.2.0'
   this.dbName = dbName
   this.ready = false
   
@@ -147,7 +147,7 @@ Chaos.prototype.__flush = function() {
   }
 }
 
-Chaos.prototype.__rmdir = function(dirname, cb) {
+function rmdir (dirname, cb) {
   fs.readdir(dirname, function(err, files) {
     if (err) {
       if (cb) cb(err)
@@ -160,11 +160,9 @@ Chaos.prototype.__rmdir = function(dirname, cb) {
       return
     }
 
-    dirname += '/'
-
     for (var i=files.length; i--; ) {
       ;(function(file) {
-        fs.unlink(dirname + file, function(err) {
+        fs.unlink(dirname + '/' + file, function(err) {
           if (!--counter && cb) {
             fs.rmdir(dirname, cb)
           }
@@ -174,7 +172,7 @@ Chaos.prototype.__rmdir = function(dirname, cb) {
   })
 }
 
-Chaos.prototype.__prepare = function(val) {
+function prepare (val) {
   switch (typeof val) {
     case 'string':
       break
@@ -189,7 +187,7 @@ Chaos.prototype.__prepare = function(val) {
   return val
 }
 
-Chaos.prototype.__parse = function(s) {
+function parse (s) {
   var data
   try {
     data = JSON.parse(s)
@@ -206,8 +204,8 @@ Chaos.prototype._set = function(key, val, cb) {
 
   var self = this
     , filename = self.dbName +'/'+ this.__hash(key)
-  
-  if (typeof val != 'string') val = val.toString()
+
+  val = prepare(val)
 
   this.__busy(key)
   
@@ -228,7 +226,7 @@ Chaos.prototype._get = function(key, cb) {
 
   fs.readFile(filename, 'utf8', function(err, data) {
     self.__free(key)
-    data = self.__parse(data)
+    data = parse(data)
     if (cb) cb(err, data)
   })
 }
@@ -253,7 +251,7 @@ Chaos.prototype._del = function(key, cb) {
         if (cb) cb(err)
       })
     } else if (stats.isDirectory()) {
-      self.__rmdir(filename, function(err) {
+      rmdir(filename, function(err) {
         self.__free(key)
         if (cb) cb(err)
       })
@@ -273,12 +271,11 @@ Chaos.prototype._getset = function(key, val, cb) {
   this.__busy(key)
 
   fs.readFile(filename, 'utf8', function(err, data) {
-    val = self.__prepare(val)
+    val = prepare(val)
   
     fs.writeFile(filename, val, 'utf8', function(err) {
       self.__free(key)
-      data = self.__parse(data)
-      if (cb) cb(err, data)
+      cb && cb(err, parse(data))
     })
   })
 }
@@ -294,8 +291,7 @@ Chaos.prototype._getdel = function(key, cb) {
   fs.readFile(filename, 'utf8', function(err, data) {
     fs.unlink(filename, function(err) {
       self.__free(key)
-      data = self.__parse(data)
-      if (cb) cb(err, data)
+      cb && cb(err, parse(data))
     })
   })
 }
@@ -310,16 +306,14 @@ Chaos.prototype._getorsetget = function(key, val, cb) {
   
   fs.readFile(filename, 'utf8', function(err, data) {
     if (err) {
-      val = self.__prepare(val)
+      val = prepare(val)
       fs.writeFile(filename, val, 'utf8', function(err) {
         self.__free(key)
-        val = self.__parse(val)
-        if (cb) cb(err, val)
+        cb && cb(err, parse(val))
       })
     } else {
       self.__free(key)
-      data = self.__parse(data)
-      if (cb) cb(err, data)
+      cb && cb(err, parse(data))
     }
   })
 }
@@ -343,7 +337,7 @@ Chaos.prototype._incr = function(key, cb) {
     
     fs.writeFile(filename, num.toString(), 'utf8', function(err) {
       self.__free(key)
-      if (cb) cb(err, num)
+      cb && cb(err, num)
     })
   })
 }
@@ -367,7 +361,7 @@ Chaos.prototype._decr = function(key, cb) {
     
     fs.writeFile(filename, num.toString(), 'utf8', function(err) {
       self.__free(key)
-      if (cb) cb(err, num)
+      cb && cb(err, num)
     })
   })
 }
@@ -386,7 +380,7 @@ Chaos.prototype._hset = function(key, field, val, cb) {
     return
   }
 
-  val = this.__prepare(val)
+  val = prepare(val)
 
   filename = dirname +'/'+ filename
 
@@ -395,31 +389,29 @@ Chaos.prototype._hset = function(key, field, val, cb) {
   fs.mkdir(dirname, 0755, function(err) {
     fs.writeFile(filename, val, 'utf8', function(err) {
       self.__free(key)
-      if (cb) cb(err)
+      cb && cb(err)
     })
   })
 }
 
 Chaos.prototype._hget = function(key, field, cb) {
   if (typeof this.__busy__[key] != 'undefined') return this.hget(key, field, cb)
-  
+
   var self = this
-    , dirname = self.dbName +'/'+ this.__hash(key)
+    , dirname = this.dbName +'/'+ this.__hash(key)
     , filename = field.toString().replace(VALID_FILENAME, '')
 
   if (filename.length == 0) {
-    if (cb) cb(new Error('Invalid field name (must be [a-zA-Z0-9 -_]): ' + field))
-    return
+    return cb && cb(new Error('Invalid field name (must be [a-zA-Z0-9 -_]): ' + field))
   }
-  
+
   filename = dirname +'/'+ filename
 
   this.__busy(key)
-  
+
   fs.readFile(filename, 'utf8', function(err, data) {
     self.__free(key)
-    data = self.__parse(data)
-    if (cb) cb(err, data)
+    cb && cb(err, parse(data))
   })
 }
 
@@ -431,8 +423,7 @@ Chaos.prototype._hdel = function(key, field, cb) {
     , filename = field.toString().replace(VALID_FILENAME, '')
 
   if (filename.length == 0) {
-    if (cb) cb(new Error('Invalid field name (must be [a-zA-Z0-9 ]): ' + field))
-    return
+    return cb && cb(new Error('Invalid field name (must be [a-zA-Z0-9 ]): ' + field))
   }
 
   filename = dirname +'/'+ filename
@@ -456,7 +447,7 @@ Chaos.prototype._hgetall = function(key, cb) {
   fs.readdir(dirname, function(err, files) {
     if (err) {
       self.__free(key)
-      return cb && cb(null, {})
+      return cb && cb(err)
     }
     
     var counter = files.length
@@ -472,7 +463,7 @@ Chaos.prototype._hgetall = function(key, cb) {
     for (var i=files.length; i--; ) {
       ;(function(file) {
         fs.readFile(dirname + file, 'utf8', function(err, data) {
-          if (!err) keyvals[file] = self.__parse(data)
+          if (!err) keyvals[file] = parse(data)
           if (!--counter) {
             self.__free(key)
             cb && cb(null, keyvals)
@@ -493,7 +484,7 @@ Chaos.prototype._hkeys = function(key, cb) {
   
   fs.readdir(dirname, function(err, files) {
     self.__free(key)
-    if (cb) cb(err, files)
+    cb && cb(err, files)
   })
 }
 
@@ -512,8 +503,8 @@ Chaos.prototype._hrand = function(key, cb) {
       var f = files[ Math.floor(Math.random() * files.length) ]
       return self.hget(key, f, cb)
     }
-    
-    if (cb) cb(err, null)
+
+    cb && cb(err, null)
   })
 }
 
@@ -528,8 +519,7 @@ Chaos.prototype._hvals = function(key, cb) {
   fs.readdir(dirname, function(err, files) {
     if (err) {
       self.__free(key)
-      if (cb) cb(err)
-      return
+      return cb && cb(err)
     }
   
     var counter = files.length
@@ -540,7 +530,7 @@ Chaos.prototype._hvals = function(key, cb) {
     for (var i=files.length; i--; ) {
       ;(function(file) {
         fs.readFile(dirname + file, 'utf8', function(err, data) {
-          if (!err) vals.push(data)
+          if (!err) vals.push(parse(data))
           if (!--counter && cb) {
             self.__free(key)
             cb(null, vals)
@@ -612,7 +602,7 @@ Chaos.prototype._jget = function(key, cb) {
       
       var rowJson = rowStr.substring(tabIndex + 1)
         , rowVal
-        
+
       try {
         val = JSON.parse(rowJson)
       } catch(err) {

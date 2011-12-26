@@ -1,2 +1,2 @@
-benchtest
-databasetest
+node_modules
+test/test-db

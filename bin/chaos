@@ -1,0 +1,8 @@
+#!/usr/bin/env node
+
+var path = require('path')
+var chaos = require('../')
+var dnode = require('dnode')
+var db = chaos(path.join(process.cwd(), 'chaos-db'))
+
+dnode(db.wrapper).listen(5650)

@@ -3,6 +3,15 @@
 var path = require('path')
 var chaos = require('../')
 var dnode = require('dnode')
-var db = chaos(path.join(process.cwd(), 'chaos-db'))
+var dbname = process.argv[2] || 'chaos-db'
+var db = chaos(path.join(process.cwd(), dbname))
 
-dnode(db.wrapper).listen(5650)
+var port = +(process.argv[3] || 5646)
+var server = dnode(db.wrapper).listen(port)
+server.on('ready', function () {
+  console.log('db `' + dbname + '` started on port', port)
+  console.log('waiting for connections')
+})
+server.use(function () {
+  console.log(new Date().toUTCString(), '-', 'remote connected')
+})

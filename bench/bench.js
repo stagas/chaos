@@ -1,18 +1,22 @@
 var chaos = require('../')
 var db = chaos(__dirname + '/bench-db')
 
+var TIMES = 3000
+
 function calcSpeed (then, times) {
   var now = Date.now()
   var diff = now - then
   var diffs = diff / 1000
+  console.log('Ops:', times)
   console.log('Time it took:', diffs + 's')
-  console.log('Operations / sec:', times / diffs)
+  console.log('Ops / sec:', times / diffs)
   console.log('Time for 1 operation:', (diffs / times) + 's')
+  console.log('')
 } 
 
 function sets (next) {
   var dataToWrite = 'bench'
-  var times = 10000
+  var times = TIMES
   var count = times
   var then = Date.now()
 
@@ -27,7 +31,7 @@ function sets (next) {
 }
 
 function gets (next) {
-  var times = 10000
+  var times = TIMES
   var count = times
   var then = Date.now()
 

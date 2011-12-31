@@ -4,11 +4,12 @@ var db = chaos(__dirname + '/test-db')
 var test = require('tap').test
 
 var dnode = require('dnode')
+var server
 var remote, remote2
 
 test("create dnode server", function (t) {
   t.plan(1)
-  var server = dnode(db.wrapper)
+  server = dnode(db.wrapper)
   server.listen(4000)
   server.on('ready', function () {
     t.pass("server ready")
@@ -64,4 +65,11 @@ test("multiple incs edge case", function (t) {
       })
     }, Math.random() * 50 | 0)
   }
+})
+
+test("close server", function (t) {
+  t.plan(1)
+  server.end()
+  server.close()
+  t.pass("closed server")
 })
